@@ -1,0 +1,46 @@
+# Runs this action against a real Edgegap organization. Needs a repository secret EDGEGAP_API_TOKEN.
+# The application needs a version using a public image (by default nginx), so no registry login is needed.
+name: e2e
+on:
+  workflow_dispatch:
+    inputs:
+      application:
+        description: Edgegap application name
+        default: deploy-action-e2e
+      base-version:
+        description: Version to copy settings from (public image, no registry login)
+        default: base-public
+      image:
+        description: Public image without the tag
+        default: docker.io/library/nginx
+      tag:
+        description: Tag to create a version for
+        default: 1.28-alpine
+      promote-version:
+        description: Version to promote (empty to skip)
+        default: prod-public
+permissions:
+  contents: read
+  deployments: write
+concurrency: e2e
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - id: deploy
+        uses: ./
+        with:
+          api-token: ${{ secrets.EDGEGAP_API_TOKEN }}
+          application: ${{ inputs.application }}
+          base-version: ${{ inputs.base-version }}
+          image: ${{ inputs.image }}
+          tag: ${{ inputs.tag }}
+          version: e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          version-secrets: E2E_SECRET=${{ github.run_id }}-secret
+          smoke-test: true
+          smoke-duration: 30s
+          show-logs: always
+          promote-version: ${{ inputs.promote-version }}
+          github-deployment: e2e
+      - run: echo "version ${{ steps.deploy.outputs.version }}, smoke test ran on ${{ steps.deploy.outputs.fqdn }} in ${{ steps.deploy.outputs.location }}"

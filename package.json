@@ -1,0 +1,10 @@
+{
+  "name": "edgegap-deploy-action",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GitHub Action: create an Edgegap app version for a new image tag, smoke-test it on a real deployment, and promote it",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test" },
+  "license": "Apache-2.0"
+}

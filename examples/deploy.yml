@@ -1,0 +1,56 @@
+# Build the server image, push it to the Edgegap registry, then create, smoke-test and promote the version.
+# Repository secrets: EDGEGAP_API_TOKEN, EDGEGAP_REGISTRY_USERNAME, EDGEGAP_REGISTRY_TOKEN
+# (the registry login is on the dashboard's Container Registry page).
+name: Deploy game server
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency: edgegap-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Choose the image and tag
+        id: image
+        run: |
+          echo "name=registry.edgegap.com/my-project/my-game" >> "$GITHUB_OUTPUT"
+          # A unique tag per build, in UTC. Never latest: Edgegap caches images by tag.
+          echo "tag=$(date -u +%Y%m%d-%H%M)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: registry.edgegap.com
+          username: ${{ secrets.EDGEGAP_REGISTRY_USERNAME }}
+          password: ${{ secrets.EDGEGAP_REGISTRY_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}
+
+      - id: edgegap
+        uses: edgegap/deploy-action@v0
+        with:
+          api-token: ${{ secrets.EDGEGAP_API_TOKEN }}
+          application: my-game
+          image: ${{ steps.image.outputs.name }}
+          tag: ${{ steps.image.outputs.tag }}
+          registry-username: ${{ secrets.EDGEGAP_REGISTRY_USERNAME }}
+          registry-token: ${{ secrets.EDGEGAP_REGISTRY_TOKEN }}
+          base-version: prod
+          smoke-test: true
+          smoke-near: "50.11,8.68"   # Frankfurt; use where your players are
+          promote-version: prod
+          github-deployment: edgegap-production
+
+      - run: echo "prod now runs version ${{ steps.edgegap.outputs.version }}"

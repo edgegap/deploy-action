@@ -1,0 +1,92 @@
+name: Edgegap Deploy
+description: Create an Edgegap app version for a freshly pushed game server image, smoke-test it on a real deployment, and promote it.
+author: Edgegap
+branding:
+  icon: server
+  color: blue
+
+inputs:
+  api-token:
+    description: Edgegap API token, with or without the "token " prefix. Store it as a repository secret.
+    required: true
+  api-url:
+    description: Edgegap API origin. Must be https and an *.edgegap.com host, unless allow-custom-api-url is true.
+    default: https://api.edgegap.com
+  allow-custom-api-url:
+    description: Allow an api-url outside *.edgegap.com. The API token is sent to that host.
+    default: "false"
+  application:
+    description: The Edgegap application name.
+    required: true
+  tag:
+    description: The image tag you just pushed. Never latest.
+    required: true
+  image:
+    description: Image reference without the tag, including the registry host, for example registry.edgegap.com/my-project/my-game. Defaults to the base version's image.
+    default: ""
+  base-version:
+    description: Existing version to copy settings from (ports, resources, env vars, max duration, restart policy). Defaults to the application's newest version.
+    default: ""
+  version:
+    description: Name of the version to create. Defaults to the UTC time, YYYYMMDD-HHMM.
+    default: ""
+  registry-username:
+    description: Registry username for pulling the image. Required when the image is private (registry.edgegap.com always is), because Edgegap never returns a version's registry login, so it cannot be copied. For registry.edgegap.com, copy it from the dashboard's Container Registry page.
+    default: ""
+  registry-token:
+    description: Registry token or password for the new version, with registry-username.
+    default: ""
+  version-secrets:
+    description: Values for the base version's secret env vars, one KEY=VALUE per line, from your repository secrets. Edgegap never returns secret values, so they cannot be copied. New keys are added as secrets.
+    default: ""
+  verify-image:
+    description: Ask Edgegap to check it can pull the image before creating the version.
+    default: "true"
+  smoke-test:
+    description: Deploy the new version, check it reaches Ready and stays up for smoke-duration without restarting, then stop it.
+    default: "false"
+  smoke-near:
+    description: Where to start the smoke-test deployment, as "latitude,longitude" or a public IP address.
+    default: "40.7128,-74.0060"
+  smoke-duration:
+    description: How long the deployment must stay Ready, in one stretch, to pass. For example 60s.
+    default: 60s
+  startup-timeout:
+    description: How long the deployment may take to become Ready.
+    default: 5m
+  smoke-env:
+    description: Extra environment variables for the smoke-test deployment, one KEY=VALUE per line. Sent hidden and masked in the log.
+    default: ""
+  show-logs:
+    description: "When to print the smoke-test container logs: on-failure, always or never."
+    default: on-failure
+  promote-version:
+    description: Existing version to point at the new image once everything passed, for example prod. Your matchmaker or backend keeps deploying that name. Leave empty to skip.
+    default: ""
+  github-deployment:
+    description: "Record the run as a GitHub Deployment to this environment name, for example edgegap-staging. Needs `permissions: deployments: write`. Leave empty to skip."
+    default: ""
+  github-token:
+    description: Token used to create the GitHub Deployment.
+    default: ${{ github.token }}
+
+outputs:
+  version:
+    description: The created (or reused) version name.
+  image:
+    description: The full image reference of the new version.
+  request-id:
+    description: The smoke-test deployment's request ID.
+  fqdn:
+    description: The smoke-test deployment's host name.
+  public-ip:
+    description: The smoke-test deployment's public IP.
+  ports:
+    description: The smoke-test deployment's ports, as JSON.
+  location:
+    description: Where the smoke-test deployment ran, as "city, country".
+
+runs:
+  using: node24
+  main: src/main.mjs
+  post: src/post.mjs
